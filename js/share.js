@@ -56,6 +56,8 @@ function openIntent(text){
   window.open(`https://x.com/intent/post?${q}`, '_blank', 'noopener');
 }
 
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
 /**
  * @returns {Promise<'shared'|'downloaded'>} which route was taken
  */
@@ -66,20 +68,35 @@ export async function shareToX(cardCanvas, meta){
   // Decide the route with a placeholder file of the right MIME type — a
   // real blob isn't needed to answer "would you accept a PNG at all", and
   // getting one is the async step we need to stay ahead of.
-  const canNativeShare = !!(
-    navigator.canShare && navigator.share &&
-    navigator.canShare({ files: [new File([], filename, { type: 'image/png' })] })
-  );
+  //
+  // Wrapped in try/catch: canShare() is meant to never throw, but a couple
+  // of WebKit versions have been seen throwing on an empty File rather
+  // than just returning false. If it does, treat native share as
+  // unavailable instead of losing the whole action.
+  let canNativeShare = false;
+  try {
+    canNativeShare = !!(
+      navigator.canShare && navigator.share &&
+      navigator.canShare({ files: [new File([], filename, { type: 'image/png' })] })
+    );
+  } catch { /* treat as unsupported */ }
 
   if (!canNativeShare){
-    // Desktop: open the tab NOW, synchronously, while we're still inside
-    // the click — then let the download run alongside it.
+    // Desktop, or a mobile browser without file-share support: open the
+    // tab NOW, synchronously, while still inside the click. The download
+    // gets its own macrotask via a short delay rather than firing in the
+    // same breath — Safari-family browsers generally permit only ONE
+    // "new window or file download" per user gesture, and two such
+    // actions back to back tend to have the second one silently dropped.
+    // Giving it a beat of its own measurably improves the odds both land.
     openIntent(text);
+    await delay(300);
     await download(cardCanvas, meta.name);
     return 'downloaded';
   }
 
-  // Mobile: the share sheet attaches the real file directly.
+  // Mobile with real file-share support: the share sheet attaches the
+  // file directly, no separate download needed.
   try {
     const blob = await canvasToBlob(cardCanvas);
     const file = new File([blob], filename, { type: 'image/png' });
@@ -92,6 +109,7 @@ export async function shareToX(cardCanvas, meta){
     // with neither the post nor the image; fall back to the same hand-off
     // desktop gets.
     openIntent(text);
+    await delay(300);
     await download(cardCanvas, meta.name);
     return 'downloaded';
   }
