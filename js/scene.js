@@ -23,7 +23,7 @@ export function createScene(canvas){
 
   let W = 0, H = 0, dpr = 1;
   let layout = null;
-  let sky = null, palms = null;                   // cached layers
+  let sky = null, palmL = null, palmR = null;      // cached layers
 
   /* ── animation state ───────────────────────────────────── */
   let raf = 0, t0 = performance.now(), time = 0;
@@ -56,6 +56,19 @@ export function createScene(canvas){
      equivalent of pitching a camera down. Values are fractions of height. */
   const FOCUS_DY = { intro: 0, write: 0.32, wash: 0.26, result: 0.12 };
   let dy = 0, dyTarget = 0;
+
+  /* Palms are pulled toward the centre on screens with nothing else
+     competing for that space (the intro — a bare corner sliver read as
+     barely there on a phone), and pushed back out toward the edges once
+     the sand-writing needs the full width to itself. 0 = at the edge
+     (their original framing position), 1 = pulled fully in. */
+  const FOCUS_PALM = { intro: 1, write: 0, wash: 0, result: 0.4 };
+  // The app boots straight into 'intro' — main.js's setFocus() only fires
+  // on a show() transition INTO an act, and there is never a transition
+  // into 'intro' since it's already on screen at load. Defaulting both
+  // values to FOCUS_PALM.intro (not 0) is what actually makes the pulled-in
+  // framing apply on first paint, rather than only after some later act.
+  let palmPull = FOCUS_PALM.intro, palmPullTarget = FOCUS_PALM.intro;
 
   // the card
   const card = {
@@ -110,15 +123,18 @@ export function createScene(canvas){
       g.fillRect(-pad, L.horizon, W + pad * 2, L.shore - L.horizon + 2);
     });
 
-    // One viewport-sized layer with both palms already in place — far easier
-    // to reason about than two offset sub-canvases. They rise from the bottom
-    // corners and lean inward, framing rather than filling.
-    palms = makeLayer(W + pad * 2, H + pad * 2, (g) => {
+    // One viewport-sized layer PER palm — not one shared canvas — so each
+    // side can be nudged toward the centre independently at draw time (see
+    // palmPull). Positioned exactly as before within their own canvas: far
+    // enough out that on 'write' the fronds only intrude from the corners
+    // and never reach the middle, where the writing lives.
+    palmL = makeLayer(W + pad * 2, H + pad * 2, (g) => {
       g.translate(pad, pad);
-      // Far enough out that the fronds only intrude from the corners —
-      // they must never reach the middle, where the writing lives.
-      palm(g, -W * 0.42, H * 1.04, H * 0.52,  0.22, 0);
-      palm(g,  W * 1.42, H * 1.06, H * 0.44, -0.22, 0);
+      palm(g, -W * 0.42, H * 1.04, H * 0.52, 0.22, 0);
+    });
+    palmR = makeLayer(W + pad * 2, H + pad * 2, (g) => {
+      g.translate(pad, pad);
+      palm(g, W * 1.42, H * 1.06, H * 0.44, -0.22, 0);
     });
   }
 
@@ -365,6 +381,7 @@ export function createScene(canvas){
     panTarget = (panFrac - 0.5) * W;
     pan += (panTarget - pan) * 0.07;
     dy += (dyTarget - dy) * 0.11;
+    palmPull += (palmPullTarget - palmPull) * 0.09;
 
     const L = layout;
     const px = look.x * 26, py = look.y * 14;
@@ -409,8 +426,12 @@ export function createScene(canvas){
     // middle of the composition.
     ctx.save();
     ctx.translate(0, -dy * 0.42);
-    ctx.drawImage(palms, -60 + px * 1.6, -60 + py * 0.7,
-                  palms.width / dpr, palms.height / dpr);
+    const palmBaseX = -60 + px * 1.6, palmBaseY = -60 + py * 0.7;
+    const palmNudge = palmPull * W * 0.16;   // toward centre, per side
+    ctx.drawImage(palmL, palmBaseX + palmNudge, palmBaseY,
+                  palmL.width / dpr, palmL.height / dpr);
+    ctx.drawImage(palmR, palmBaseX - palmNudge, palmBaseY,
+                  palmR.width / dpr, palmR.height / dpr);
     ctx.restore();
 
     drawCard(ctx);
@@ -466,7 +487,10 @@ export function createScene(canvas){
   }
 
   return {
-    setFocus(mode){ dyTarget = (FOCUS_DY[mode] ?? 0) * H; },
+    setFocus(mode){
+      dyTarget = (FOCUS_DY[mode] ?? 0) * H;
+      palmPullTarget = FOCUS_PALM[mode] ?? 0;
+    },
 
     /**
      * @param {number} centreFrac  where the beach content should centre, 0..1
