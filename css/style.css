@@ -22,15 +22,22 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
 
-  /* Kept in sync with visualViewport.height by main.js. Android Chrome does
-     NOT shrink the layout viewport when the on-screen keyboard opens — it
-     just overlays the keyboard on top — so anything sized off inset:0/100%
-     stays pinned to the pre-keyboard height and its bottom portion (here,
-     the sheet with the field you're typing into) ends up hidden behind the
-     keyboard. iOS Safari happens to compensate for this natively, which is
-     why the same layout looks fine there. The fallback keeps this correct
-     before the first JS-driven update lands. */
+  /* Kept in sync with visualViewport by main.js.
+     --app-height: Android Chrome does not shrink the layout viewport when
+     the on-screen keyboard opens — it overlays the keyboard on top — so
+     anything sized off inset:0/100% stays pinned to the pre-keyboard
+     height and its bottom portion (the field you're typing into) ends up
+     hidden behind the keyboard.
+     --app-offset: iOS Safari has the opposite problem — it DOES shrink the
+     visual viewport, but has a long-standing bug where position:fixed
+     elements don't reliably re-track it: when focusing an input triggers
+     iOS's own scroll-into-view behavior, fixed elements can drift up and
+     off-screen even though --app-height already sized them correctly,
+     leaving a blank gap where they used to be. Translating by
+     visualViewport.offsetTop cancels that drift out.
+     Both fall back to their no-op values until the first JS update lands. */
   --app-height: 100%;
+  --app-offset: 0px;
 }
 
 *,*::before,*::after{ box-sizing:border-box; }
@@ -64,6 +71,7 @@ body{
   position:fixed;
   top:0; left:0; right:0;
   width:100%; height:var(--app-height);
+  transform:translateY(var(--app-offset));
   display:block;
   z-index:0;
   touch-action:none;
@@ -89,6 +97,7 @@ body{
   position:fixed;
   top:0; left:0; right:0;
   height:var(--app-height);
+  transform:translateY(var(--app-offset));
   z-index:2;
   pointer-events:none;
 }
@@ -205,13 +214,6 @@ body{
   font-size:clamp(13px, 3.7vw, 15px);
   line-height:1.65;
   color:rgb(0 48 26 / .78);
-}
-.intro__hint{
-  margin:18px 0 0;
-  font-size:10px; letter-spacing:.18em;
-  color:rgb(0 48 26 / .42);
-  text-transform:uppercase;
-  animation:breathe 3.2s var(--ease-in-out) infinite;
 }
 @keyframes breathe{ 0%,100%{opacity:.32} 50%{opacity:.72} }
 

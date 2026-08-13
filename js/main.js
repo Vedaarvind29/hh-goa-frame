@@ -9,24 +9,37 @@ import { preparePhoto }       from './imageio.js';
 import { renderCard, preloadCardAssets } from './card.js';
 import { shareToX, download } from './share.js';
 
-/* ── keyboard-aware viewport height ─────────────────────────
-   Android Chrome doesn't shrink the layout viewport when the on-screen
-   keyboard opens — it overlays the keyboard on top instead — so anything
-   sized off the plain layout viewport (everything here uses
-   position:fixed + a height driven by this custom property) stays pinned
-   to the pre-keyboard height, and the field you're typing into can end up
-   hidden behind the keyboard. visualViewport.height DOES shrink correctly
-   when the keyboard opens, on both platforms, so feeding it back as a CSS
-   custom property is what lets the fixed layers actually respond. iOS
-   Safari already handled this natively, so this is a no-op improvement
-   there, not a platform-specific patch. */
-function syncAppHeight(){
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+/* ── keyboard-aware viewport sizing ──────────────────────────
+   Two different platform bugs, two custom properties.
+
+   --app-height: Android Chrome doesn't shrink the layout viewport when
+   the on-screen keyboard opens — it overlays the keyboard on top instead
+   — so anything sized off the plain layout viewport stays pinned to the
+   pre-keyboard height, and the field you're typing into ends up hidden
+   behind the keyboard. visualViewport.height DOES shrink correctly on
+   both platforms, so feeding it back here is what lets the fixed layers
+   actually respond.
+
+   --app-offset: iOS Safari has the opposite failure mode. It shrinks the
+   visual viewport correctly, but position:fixed elements have a
+   long-standing WebKit bug where they don't reliably re-track it —
+   focusing an input triggers iOS's own scroll-into-view behavior, and the
+   fixed layers can drift up and off-screen with that scroll instead of
+   staying put, even though --app-height already sized them correctly.
+   That's what left a blank gap where the form used to be. offsetTop is
+   how far the visual viewport has scrolled from the layout viewport's
+   origin, so translating by it cancels that drift back out. */
+function syncAppViewport(){
+  const vv = window.visualViewport;
+  const h   = vv ? vv.height    : window.innerHeight;
+  const top = vv ? vv.offsetTop : 0;
   document.documentElement.style.setProperty('--app-height', `${h}px`);
+  document.documentElement.style.setProperty('--app-offset', `${top}px`);
 }
-syncAppHeight();
-window.visualViewport?.addEventListener('resize', syncAppHeight);
-window.addEventListener('resize', syncAppHeight);
+syncAppViewport();
+window.visualViewport?.addEventListener('resize', syncAppViewport);
+window.visualViewport?.addEventListener('scroll', syncAppViewport);
+window.addEventListener('resize', syncAppViewport);
 
 const $ = id => document.getElementById(id);
 
@@ -34,7 +47,6 @@ const el = {
   scene:    $('scene'),
   acts:     { intro: $('act-intro'), form: $('act-form'), wash: $('act-wash'), result: $('act-result') },
   begin:    $('btn-begin'),
-  hint:     $('intro-hint'),
 
   photoWrap: $('photo-drop'),
   photoIn:   $('input-photo'),
@@ -153,15 +165,6 @@ el.begin.addEventListener('click', () => {
   show('form');
   setTimeout(() => el.name.focus({ preventScroll: true }), 500);
 });
-
-// hide the drag hint once they've had a go
-let hintDone = false;
-el.scene.addEventListener('pointerdown', () => {
-  if (hintDone) return;
-  hintDone = true;
-  el.hint.style.transition = 'opacity .6s';
-  el.hint.style.opacity = '0';
-}, { once: true });
 
 /* ── ACT 1 · live sand writing ───────────────────────────── */
 function syncSand(){
@@ -358,9 +361,26 @@ el.share.addEventListener('click', async () => {
 
 el.again.addEventListener('click', async () => {
   await scene.reset();
+
+  // A genuine restart, not just a fresh form with the last entry still
+  // sitting in it — clear the fields, the photo, and the title roll so
+  // "start writing" on the home screen really does begin from zero.
   state.card = null;
-  show('form');
+  state.photo = null;
+  state.roll = 0;
+  el.name.value = '';
+  el.role.value = '';
+  el.stack.value = '';
+  el.photoImg.src = '';
+  el.photoImg.hidden = true;
+  el.photoEmpty.hidden = false;
+  el.photoWrap.classList.remove('is-filled');
+  el.photoHint.innerHTML = 'JPG, PNG or HEIC.<br>Any crop &mdash; we handle it.';
+
+  syncTitle();
+  syncReady();
   syncSand();
+  show('intro');
 });
 
 /* ── boot ────────────────────────────────────────────────── */
