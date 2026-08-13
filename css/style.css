@@ -325,8 +325,16 @@ body{
 }
 
 /* ── ACT 2/3 · wash ──────────────────────────────────────── */
-/* Sits low, in the empty foreground sand, so it never fights the writing */
-.act--wash{ align-items:flex-end; justify-content:center; position:relative; }
+/* Sits low, in the empty foreground sand, so it never fights the writing.
+   position stays `absolute` (inherited from .act) — an explicit `relative`
+   here used to override it, which knocked this act out of the fixed
+   inset:0 sizing every other act gets. Without that, the element shrank
+   to fit only its own content and rendered at the natural top of the
+   document instead of filling and bottom-aligning within the viewport,
+   which is why the line was appearing cropped under the status bar.
+   `absolute` still gives .skipzone a positioning context to anchor to,
+   same as it always did — the `relative` was never needed for that. */
+.act--wash{ align-items:flex-end; justify-content:center; }
 
 /* Full-bleed tap target that fast-forwards the sequence */
 .skipzone{
@@ -341,9 +349,12 @@ body{
   margin:0; text-align:center;
   pointer-events:none;
   font-size:10px; letter-spacing:.2em; text-transform:uppercase;
-  color:rgb(255 251 232 / .38);
+  color:rgb(0 48 26 / .38);
   animation:breathe 3s var(--ease-in-out) infinite;
 }
+/* Sits low, over the light sand at the bottom of the frame — dark green
+   reads clearly there; the old cream/white was legible only against the
+   sea, which the text spends most of its time NOT over. */
 .washline{
   margin:0 0 clamp(60px, 18vh, 150px); padding:0 30px;
   text-align:center;
@@ -352,8 +363,7 @@ body{
   font-size:clamp(26px, 8vw, 46px);
   line-height:1.1;
   letter-spacing:.02em;
-  color:var(--cream);
-  text-shadow:0 2px 24px rgb(0 0 0 / .5);
+  color:var(--ink);
   opacity:0;
   transition:opacity .7s var(--ease-out), transform .7s var(--ease-out);
   transform:translateY(10px);

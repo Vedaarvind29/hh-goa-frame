@@ -347,9 +347,23 @@ export async function renderCard(data, target){
   const tx = px + PH + 32;
   const tw = W - PAD - tx;
 
-  const lines = nameLines(name.toUpperCase());
-  let nameSize = lines.length > 1 ? 78 : 92;
-  for (const l of lines) nameSize = Math.min(nameSize, fitText(ctx, l, tw, nameSize, IMBUE, 800));
+  // Try the whole name on ONE line first, as large as it'll go — most
+  // names are short enough for this, and one confident line reads better
+  // than two split just because there happened to be two words ("VEDA" /
+  // "ARVIND" stacked looks cramped when there was room to say it at once).
+  // Only fall back to splitting across lines if it would otherwise have
+  // to shrink uncomfortably small to fit.
+  const upperName = name.toUpperCase();
+  const nameWords = name.trim().split(/\s+/);
+
+  let lines = [upperName];
+  let nameSize = fitText(ctx, upperName, tw, 112, IMBUE, 800);
+
+  if (nameWords.length > 1 && nameSize < 48){
+    lines = nameLines(name).map(l => l.toUpperCase());
+    nameSize = 96;
+    for (const l of lines) nameSize = Math.min(nameSize, fitText(ctx, l, tw, nameSize, IMBUE, 800));
+  }
 
   ctx.fillStyle = C.cream;
   ctx.font = `800 ${nameSize}px ${IMBUE}`;
@@ -361,16 +375,17 @@ export async function renderCard(data, target){
 
   // role pill, sitting under the name inside the photo's band
   if (role){
-    ctx.font = `700 26px ${IMBUE}`;
+    const roleSize = 32;
+    ctx.font = `700 ${roleSize}px ${IMBUE}`;
     const rw = ctx.measureText(role.toUpperCase()).width;
-    const pillH = 46, pillW = Math.min(rw + 44, tw);
+    const pillH = 56, pillW = Math.min(rw + 48, tw);
     const ry = Math.min(ny - nameSize * 0.84 + nameSize * 0.34, py + PH - pillH);
     ctx.fillStyle = C.pink;
     roundRect(ctx, tx, ry, pillW, pillH, pillH / 2);
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
-    ctx.fillText(role.toUpperCase(), tx + pillW / 2, ry + pillH * 0.70);
+    ctx.fillText(role.toUpperCase(), tx + pillW / 2, ry + pillH * 0.68);
     ctx.textAlign = 'left';
   }
 
