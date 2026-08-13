@@ -1,0 +1,434 @@
+/* ============================================================
+   Hacker House Goa 2026 — Builder ID Generator
+   Design tokens lifted from hhgoa.com
+   ============================================================ */
+
+:root{
+  --green:      #0B6839;
+  --green-deep: #075029;
+  --green-lift: #14804a;
+  --yellow:     #FEE101;
+  --pink:       #FF0080;
+  --cream:      #FFFBE8;
+  --sand:       #E3C08D;
+  --ink:        #06331d;
+
+  --shadow-yellow: 0 0 12px 3px rgb(254 225 1 / .20), 0 0 26px 5px rgb(254 225 1 / .07);
+  --shadow-pink:   0 0 12px 3px rgb(255 0 128 / .22), 0 0 26px 5px rgb(255 0 128 / .08);
+
+  --ease-out: cubic-bezier(.16,.84,.44,1);
+  --ease-in-out: cubic-bezier(.65,.05,.36,1);
+
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+/* The `hidden` attribute only sets `display:none` in the UA stylesheet, so
+   ANY author `display` rule silently defeats it. Several elements here set
+   display:grid/block, which made them impossible to hide from JS. */
+[hidden]{ display:none !important; }
+
+html,body{
+  margin:0; padding:0;
+  height:100%;
+  background:var(--green);
+  color:var(--cream);
+  font-family:"Victor Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overscroll-behavior:none;
+}
+
+body{
+  overflow:hidden;
+  position:fixed;
+  inset:0;
+  touch-action:none;
+}
+
+/* ── GL canvas ───────────────────────────────────────────── */
+#scene{
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  display:block;
+  z-index:0;
+  touch-action:none;
+}
+
+/* paper grain — the brand art has a printed, slightly noisy surface */
+.grain{
+  position:fixed; inset:0;
+  z-index:1;
+  pointer-events:none;
+  opacity:.16;
+  mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.grain::after{
+  content:""; position:absolute; inset:0;
+  background:radial-gradient(125% 95% at 50% 42%, transparent 52%, rgb(3 40 22 / .38) 100%);
+  mix-blend-mode:multiply;
+}
+
+/* ── UI shell ────────────────────────────────────────────── */
+#ui{
+  position:fixed; inset:0;
+  z-index:2;
+  pointer-events:none;
+}
+.act{
+  position:absolute; inset:0;
+  display:flex;
+  opacity:0;
+  transition:opacity .5s var(--ease-out);
+}
+.act[hidden]{ display:none; }
+.act.is-active{ opacity:1; }
+.act > *{ pointer-events:auto; }
+
+.sr-only{
+  position:absolute; width:1px; height:1px;
+  padding:0; margin:-1px; overflow:hidden;
+  clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn{
+  font-family:"Imbue", Georgia, serif;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.055em;
+  font-size:clamp(15px, 4.4vw, 19px);
+  line-height:1;
+  padding:.95em 1.9em .8em;
+  border:0; border-radius:999px;
+  cursor:pointer;
+  transition:transform .22s var(--ease-out), box-shadow .22s var(--ease-out), opacity .2s;
+  -webkit-tap-highlight-color:transparent;
+  white-space:nowrap;
+}
+.btn:active{ transform:scale(.96); }
+.btn:disabled{ opacity:.4; cursor:not-allowed; }
+.btn:focus-visible{ outline:2px solid var(--cream); outline-offset:3px; }
+
+.btn--yellow{ background:var(--yellow); color:var(--ink); box-shadow:var(--shadow-yellow); }
+.btn--pink  { background:var(--pink);   color:#fff;      box-shadow:var(--shadow-pink); }
+/* Sits on white sand, so it reads dark rather than cream */
+.btn--ghost {
+  background:transparent; color:var(--ink);
+  border:1px solid rgb(0 48 26 / .35);
+  box-shadow:none;
+}
+.btn--wide{ width:100%; }
+
+@media (hover:hover){
+  .btn--yellow:hover{ transform:translateY(-2px); box-shadow:0 0 16px 4px rgb(254 225 1 / .32), 0 0 34px 8px rgb(254 225 1 / .12); }
+  .btn--pink:hover  { transform:translateY(-2px); box-shadow:0 0 16px 4px rgb(255 0 128 / .34), 0 0 34px 8px rgb(255 0 128 / .12); }
+  .btn--ghost:hover { border-color:var(--ink); }
+}
+
+/* ── Tags / pills ────────────────────────────────────────── */
+.tag{
+  display:inline-block;
+  font-family:"Imbue", Georgia, serif;
+  font-weight:700; text-transform:uppercase;
+  font-size:11px; letter-spacing:.09em;
+  padding:.5em 1em .35em;
+  border-radius:999px;
+}
+.tag--pink{ background:var(--pink); color:#fff; }
+
+/* ── ACT 0 · intro ───────────────────────────────────────── */
+.act--intro{ flex-direction:column; justify-content:space-between; }
+
+.brandbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(16px + var(--safe-t)) 20px 0;
+}
+.brandbar__studio{ width:56px; height:auto; }
+.brandbar__meta{
+  font-size:10.5px; letter-spacing:.16em;
+  color:var(--yellow); opacity:.9;
+}
+
+.intro{
+  padding:0 22px calc(34px + var(--safe-b));
+  text-align:center;
+  display:flex; flex-direction:column; align-items:center;
+}
+
+/* The lower half of the scene is white sand now, so the intro sits in
+   dark green — the same way type sits on the sand in the event artwork. */
+.lockup{
+  margin:0 0 2px;
+  display:flex; align-items:center; justify-content:center;
+  gap:.06em;
+  font-family:"Imbue", Georgia, serif;
+  font-weight:400;
+  font-size:clamp(52px, 17vw, 104px);
+  line-height:.82;
+  letter-spacing:.005em;
+  color:var(--ink);
+}
+.lockup__line{ display:block; }
+.lockup__goa{
+  width:clamp(46px, 15vw, 92px); height:auto;
+  margin:0 -.02em;
+  transform:rotate(-7deg) translateY(-.06em);
+  filter:drop-shadow(0 3px 0 rgb(0 0 0 / .25));
+}
+
+.intro__kicker{
+  margin:6px 0 0;
+  font-size:10.5px; letter-spacing:.3em;
+  color:var(--pink);
+  text-transform:uppercase;
+}
+.intro__copy{
+  margin:16px 0 26px;
+  font-size:clamp(13px, 3.7vw, 15px);
+  line-height:1.65;
+  color:rgb(0 48 26 / .78);
+}
+.intro__hint{
+  margin:18px 0 0;
+  font-size:10px; letter-spacing:.18em;
+  color:rgb(0 48 26 / .42);
+  text-transform:uppercase;
+  animation:breathe 3.2s var(--ease-in-out) infinite;
+}
+@keyframes breathe{ 0%,100%{opacity:.32} 50%{opacity:.72} }
+
+/* ── ACT 1 · the sheet ───────────────────────────────────── */
+.act--form{ align-items:flex-end; justify-content:center; }
+
+.sheet{
+  width:100%;
+  max-width:460px;
+  margin:0 auto;
+  padding:8px 18px calc(14px + var(--safe-b));
+  background:rgb(7 55 30 / .90);
+  backdrop-filter:blur(18px) saturate(1.2);
+  -webkit-backdrop-filter:blur(18px) saturate(1.2);
+  border-top:1.5px solid rgb(254 225 1 / .35);
+  border-radius:22px 22px 0 0;
+  box-shadow:0 -18px 50px rgb(0 0 0 / .45);
+  max-height:88svh;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  animation:sheet-up .6s var(--ease-out) both;
+}
+@keyframes sheet-up{ from{ transform:translateY(28px); opacity:0 } to{ transform:none; opacity:1 } }
+
+.sheet__grip{
+  width:40px; height:4px; border-radius:99px;
+  background:rgb(255 251 232 / .3);
+  margin:2px auto 10px;
+}
+.sheet__head{
+  display:flex; align-items:baseline; gap:10px;
+  margin-bottom:12px;
+}
+.sheet__note{
+  margin:0; font-size:11px;
+  color:rgb(255 251 232 / .55);
+}
+.sheet__req{
+  margin:10px 0 0; text-align:center;
+  font-size:10.5px; letter-spacing:.06em;
+  color:rgb(255 251 232 / .45);
+  min-height:1.2em;
+  transition:color .3s;
+}
+.sheet__req.is-ready{ color:var(--yellow); }
+
+.field{ margin-bottom:10px; }
+.field--split{ display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+
+.field__label{
+  display:block;
+  font-size:9px; letter-spacing:.2em;
+  color:var(--yellow);
+  margin-bottom:4px;
+}
+.field__input{
+  width:100%;
+  font-family:"Victor Mono", monospace;
+  font-size:16px;              /* 16px avoids iOS zoom-on-focus */
+  color:var(--cream);
+  background:rgb(255 251 232 / .07);
+  border:1px solid rgb(255 251 232 / .18);
+  border-radius:10px;
+  padding:9px 12px;
+  transition:border-color .2s, background .2s;
+}
+.field__input::placeholder{ color:rgb(255 251 232 / .3); }
+.field__input:focus{
+  outline:none;
+  border-color:var(--yellow);
+  background:rgb(255 251 232 / .11);
+}
+
+/* photo picker */
+.field--photo{ margin-bottom:12px; }
+.photo{
+  display:flex; align-items:center; gap:12px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.photo__frame{
+  position:relative;
+  flex:0 0 auto;
+  width:62px; height:62px;
+  border-radius:12px;
+  background:rgb(255 251 232 / .07);
+  border:1.5px dashed rgb(254 225 1 / .5);
+  display:grid; place-items:center;
+  overflow:hidden;
+  transition:border-color .2s, background .2s;
+}
+.photo.is-filled .photo__frame{ border-style:solid; border-color:var(--yellow); }
+.photo.is-drag .photo__frame{ background:rgb(254 225 1 / .16); border-color:var(--yellow); }
+.photo__frame img{ width:100%; height:100%; object-fit:cover; display:block; }
+.photo__empty{ display:grid; place-items:center; gap:3px; }
+.photo__plus{ font-size:22px; line-height:1; color:var(--yellow); }
+.photo__label{ font-size:8.5px; letter-spacing:.14em; color:rgb(254 225 1 / .8); }
+.photo__hint{ font-size:10.5px; line-height:1.55; color:rgb(255 251 232 / .5); }
+
+@keyframes spin{ to{ transform:rotate(360deg) } }
+
+/* builder title */
+.titleline{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; }
+.reroll{
+  background:transparent; border:1px solid rgb(255 0 128 / .6);
+  color:var(--pink);
+  font-family:"Imbue", Georgia, serif; font-weight:700;
+  font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  border-radius:999px; padding:.42em .85em .3em;
+  cursor:pointer;
+  display:inline-flex; align-items:center; gap:5px;
+  transition:background .2s, color .2s;
+}
+.reroll:active{ transform:scale(.94); }
+.reroll.is-rolling .reroll__icon{ animation:spin .5s var(--ease-out); }
+@media (hover:hover){ .reroll:hover{ background:var(--pink); color:#fff; } }
+
+.titleout{
+  display:block;
+  font-family:"Imbue", Georgia, serif;
+  font-weight:700; font-size:23px; line-height:1.02;
+  color:var(--yellow);
+  letter-spacing:.01em;
+  margin-bottom:12px;
+}
+
+/* ── ACT 2/3 · wash ──────────────────────────────────────── */
+/* Sits low, in the empty foreground sand, so it never fights the writing */
+.act--wash{ align-items:flex-end; justify-content:center; position:relative; }
+
+/* Full-bleed tap target that fast-forwards the sequence */
+.skipzone{
+  position:absolute; inset:0;
+  background:transparent; border:0; padding:0;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.skiphint{
+  position:absolute;
+  left:0; right:0; bottom:calc(20px + var(--safe-b));
+  margin:0; text-align:center;
+  pointer-events:none;
+  font-size:10px; letter-spacing:.2em; text-transform:uppercase;
+  color:rgb(255 251 232 / .38);
+  animation:breathe 3s var(--ease-in-out) infinite;
+}
+.washline{
+  margin:0 0 clamp(60px, 18vh, 150px); padding:0 30px;
+  text-align:center;
+  font-family:"Imbue", Georgia, serif;
+  font-weight:400;
+  font-size:clamp(26px, 8vw, 46px);
+  line-height:1.1;
+  letter-spacing:.02em;
+  color:var(--cream);
+  text-shadow:0 2px 24px rgb(0 0 0 / .5);
+  opacity:0;
+  transition:opacity .7s var(--ease-out), transform .7s var(--ease-out);
+  transform:translateY(10px);
+}
+.washline.is-in{ opacity:1; transform:none; }
+
+/* ── ACT 4 · result ──────────────────────────────────────── */
+.act--result{ align-items:flex-end; justify-content:center; }
+.result{
+  width:100%; max-width:460px;
+  padding:0 20px calc(26px + var(--safe-b));
+  text-align:center;
+  animation:sheet-up .7s var(--ease-out) both;
+}
+.result__actions{
+  display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+}
+.result__actions .btn{ flex:1 1 auto; min-width:132px; }
+#btn-again{ flex-basis:100%; }
+.result__hash{
+  margin:16px 0 0;
+  font-family:"Imbue", Georgia, serif; font-weight:700;
+  font-size:15px; letter-spacing:.1em;
+  color:var(--pink);
+}
+
+/* toast */
+.toast{
+  position:fixed;
+  left:50%; bottom:calc(24px + var(--safe-b));
+  transform:translate(-50%, 16px);
+  z-index:20;
+  background:var(--ink); color:var(--cream);
+  border:1px solid rgb(254 225 1 / .4);
+  border-radius:999px;
+  padding:10px 18px;
+  font-size:11.5px; letter-spacing:.04em;
+  opacity:0; pointer-events:none;
+  transition:opacity .3s var(--ease-out), transform .3s var(--ease-out);
+  max-width:min(88vw, 420px);
+  text-align:center;
+}
+.toast.is-in{ opacity:1; transform:translate(-50%,0); }
+
+.noscript{
+  position:fixed; inset:0; z-index:99;
+  display:grid; place-items:center;
+  background:var(--green); color:var(--cream);
+  padding:30px; text-align:center;
+}
+
+/* ── desktop / landscape ─────────────────────────────────────
+   The panel moves to the side once a bottom sheet would swallow the
+   beach. That is either plenty of width, or enough width combined with
+   too little height to spare — the sheet needs ~420px, and the writing
+   needs the rest. Phones in portrait keep the bottom sheet. */
+@media (min-width:740px), (min-width:600px) and (max-height:900px){
+  .act--form{ align-items:center; justify-content:flex-end; }
+  .sheet{
+    margin:0 4vw 0 0;
+    border-radius:22px;
+    border:1.5px solid rgb(254 225 1 / .3);
+    max-height:86vh;
+    padding:22px 24px 24px;
+  }
+  .sheet__grip{ display:none; }
+
+  .act--result{ align-items:center; justify-content:flex-end; }
+  .result{ margin:0 4vw 0 0; }
+
+  .intro{ padding-bottom:56px; }
+  .brandbar{ padding:24px 32px 0; }
+  .brandbar__studio{ width:68px; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{ animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.12s !important; }
+}

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0B6839">
+<title>Write it in the sand — Hacker House Goa 2026</title>
+<meta name="description" content="Write your name in the sand at Hacker House Goa 2026. The sea takes it, and brings back your builder ID.">
+
+<meta property="og:title" content="Write it in the sand — Hacker House Goa 2026">
+<meta property="og:description" content="Write your name in the sand. The sea takes it, and brings back your builder ID. #FrameInGoa">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preload" href="assets/fonts/imbue-RLpxK5P16Ki3fVJvzTQKbVvu.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/victormono-Yq6Q-LGQWyfv-LGy7lEO0_ZdtxUGS7ZG.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<!-- grain + vignette sit above the GL canvas, below the UI -->
+<div class="grain" aria-hidden="true"></div>
+
+<main id="ui">
+
+  <!-- ─────────── ACT 0 · arrival ─────────── -->
+  <section class="act act--intro is-active" id="act-intro">
+    <header class="brandbar">
+      <img class="brandbar__studio" src="assets/brand/2-47.svg" alt="2:47 PM Studio" width="70" height="43">
+      <span class="brandbar__meta">28&ndash;31 OCT 2026 &middot; GOA</span>
+    </header>
+
+    <div class="intro">
+      <h1 class="lockup">
+        <span class="lockup__line">HACKER</span>
+        <img class="lockup__goa" src="assets/brand/goa_hindi.svg" alt="गोवा" width="181" height="180">
+        <span class="lockup__line">HOUSE</span>
+      </h1>
+      <p class="intro__kicker">Builder ID Generator</p>
+      <p class="intro__copy">Write your name in the sand.<br>The sea will take it &mdash; and bring back your ID.</p>
+      <button class="btn btn--yellow" id="btn-begin" type="button">START WRITING</button>
+      <p class="intro__hint" id="intro-hint">Drag to look around</p>
+    </div>
+  </section>
+
+  <!-- ─────────── ACT 1 · write ─────────── -->
+  <section class="act act--form" id="act-form" hidden>
+    <div class="sheet">
+      <div class="sheet__grip" aria-hidden="true"></div>
+
+      <div class="sheet__head">
+        <span class="tag tag--pink">YOUR DETAILS</span>
+        <p class="sheet__note">Watch the sand as you type.</p>
+      </div>
+
+      <div class="field field--photo">
+        <label class="photo" id="photo-drop">
+          <input type="file" id="input-photo" accept="image/*,.heic,.heif" hidden>
+          <span class="photo__frame" id="photo-frame">
+            <img id="photo-preview" alt="" hidden>
+            <span class="photo__empty" id="photo-empty">
+              <span class="photo__plus">+</span>
+              <span class="photo__label">ADD PHOTO</span>
+            </span>
+          </span>
+          <span class="photo__hint" id="photo-hint">JPG, PNG or HEIC.<br>Any crop &mdash; we handle it.</span>
+        </label>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="input-name">NAME</label>
+        <input class="field__input" id="input-name" type="text" maxlength="22"
+               autocomplete="name" placeholder="Alex Fernandes" enterkeyhint="next">
+      </div>
+
+      <div class="field field--split">
+        <div>
+          <label class="field__label" for="input-role">ROLE</label>
+          <input class="field__input" id="input-role" type="text" maxlength="20"
+                 placeholder="Frontend" enterkeyhint="next" list="roles">
+          <datalist id="roles">
+            <option>Frontend</option><option>Backend</option><option>Full-stack</option>
+            <option>Design</option><option>AI / ML</option><option>Smart Contracts</option>
+            <option>Product</option><option>Growth</option><option>Founder</option>
+          </datalist>
+        </div>
+        <div>
+          <label class="field__label" for="input-stack">STACK</label>
+          <input class="field__input" id="input-stack" type="text" maxlength="24"
+                 placeholder="Next.js · Solidity" enterkeyhint="done">
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="titleline">
+          <span class="field__label">BUILDER TITLE</span>
+          <button class="reroll" id="btn-reroll" type="button" title="Roll another">
+            <span class="reroll__icon" aria-hidden="true">⟳</span> ROLL
+          </button>
+        </div>
+        <output class="titleout" id="builder-title">The Tide Chaser</output>
+      </div>
+
+      <button class="btn btn--pink btn--wide" id="btn-summon" type="button" disabled>
+        LET THE SEA TAKE IT
+      </button>
+      <p class="sheet__req" id="sheet-req">Add a photo and a name to continue</p>
+    </div>
+  </section>
+
+  <!-- ─────────── ACT 2/3 · the sea ─────────── -->
+  <section class="act act--wash" id="act-wash" hidden>
+    <button class="skipzone" id="btn-skip" type="button" aria-label="Skip the animation"></button>
+    <p class="washline" id="washline"></p>
+    <p class="skiphint">Tap to skip</p>
+  </section>
+
+  <!-- ─────────── ACT 4 · result ─────────── -->
+  <section class="act act--result" id="act-result" hidden>
+    <div class="result">
+      <div class="result__actions">
+        <button class="btn btn--yellow" id="btn-download" type="button">DOWNLOAD</button>
+        <button class="btn btn--pink" id="btn-share" type="button">SHARE TO X</button>
+        <button class="btn btn--ghost" id="btn-again" type="button">START OVER</button>
+      </div>
+      <p class="result__hash">#FrameInGoa</p>
+    </div>
+  </section>
+
+  <!-- live region for screen readers -->
+  <p class="sr-only" role="status" aria-live="polite" id="sr-status"></p>
+</main>
+
+<noscript>
+  <div class="noscript">This experience needs JavaScript enabled.</div>
+</noscript>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

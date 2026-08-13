@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!-- Dev harness: renders the card in isolation so it can be iterated on
+     without sitting through the whole beach sequence. Not shipped. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>card harness</title>
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<style>
+  body{ margin:0; background:#123; display:flex; gap:20px; padding:20px;
+        font-family:monospace; color:#fff; flex-wrap:wrap; align-items:flex-start; }
+  canvas{ height:86vh; box-shadow:0 10px 40px #0008; }
+  canvas.og{ height:auto; width:520px; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+import { renderCard } from './js/card.js';
+
+// stand-in portrait: off-centre subject, tall crop
+function testPhoto(){
+  const c = document.createElement('canvas'); c.width = c.height = 720;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2b4c6f'; g.fillRect(0,0,720,720);
+  g.fillStyle = '#e8b98a'; g.beginPath(); g.arc(360,330,190,0,7); g.fill();
+  g.fillStyle = '#3a2a1c'; g.beginPath(); g.arc(360,210,200,Math.PI,0); g.fill();
+  g.fillStyle = '#222';
+  g.beginPath(); g.arc(300,320,20,0,7); g.fill();
+  g.beginPath(); g.arc(420,320,20,0,7); g.fill();
+  g.strokeStyle='#8a4b3a'; g.lineWidth=12;
+  g.beginPath(); g.arc(360,390,60,0.3,2.84); g.stroke();
+  g.fillStyle = '#c0392b'; g.fillRect(200,560,320,200);
+  return c;
+}
+
+const CASES = [
+  { name:'Alex Fernandes', role:'Frontend', stack:'Next.js · Solidity', title:'The Low-Tide Signal' },
+  { name:'Sri', role:'AI / ML', stack:'PyTorch', title:'The Caffeinated Prompt Smith' },
+  { name:'Priyanka Balasubramanian', role:'Smart Contracts', stack:'Foundry · Solidity · Viem', title:'The Two-Thirty-AM Mempool Ghost' },
+];
+
+const out = document.getElementById('out');
+for (const c of CASES){
+  const canvas = await renderCard({ ...c, photo: testPhoto() });
+  out.appendChild(canvas);
+}
+</script>
+</body>
+</html>
