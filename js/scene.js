@@ -123,19 +123,30 @@ export function createScene(canvas){
       g.fillRect(-pad, L.horizon, W + pad * 2, L.shore - L.horizon + 2);
     });
 
-    // One viewport-sized layer PER palm — not one shared canvas — so each
-    // side can be nudged toward the centre independently at draw time (see
-    // palmPull). Positioned exactly as before within their own canvas: far
-    // enough out that on 'write' the fronds only intrude from the corners
-    // and never reach the middle, where the writing lives.
-    palmL = makeLayer(W + pad * 2, H + pad * 2, (g) => {
-      g.translate(pad, pad);
-      palm(g, -W * 0.42, H * 1.04, H * 0.52, 0.22, 0);
-    });
-    palmR = makeLayer(W + pad * 2, H + pad * 2, (g) => {
-      g.translate(pad, pad);
-      palm(g, W * 1.42, H * 1.06, H * 0.44, -0.22, 0);
-    });
+    // Each palm gets its own canvas, sized and laid out purely from the
+    // tree's OWN height — never from viewport width. The previous version
+    // positioned the trunk base at coordinates like `-W * 0.42`, which on
+    // a narrow phone landed outside that canvas's own bounds: the outer
+    // fronds were never rendered into the cached bitmap at all, not merely
+    // cropped by the screen edge. No amount of repositioning at draw time
+    // — including dragging to look around — could bring back pixels that
+    // were never drawn in the first place, which is exactly the hard flat
+    // edge that was showing. Sizing each canvas generously around its own
+    // geometry guarantees the complete tree always exists in the bitmap;
+    // only the viewport can crop it now, which is expected — corner trees
+    // are meant to run off the edge, they just have to be whole first.
+    palmL = buildPalm(H * 0.52,  0.22);
+    palmR = buildPalm(H * 0.44, -0.22);
+  }
+
+  /** A palm rendered into its own right-sized canvas, plus the local
+   *  (canvas-space) position of its trunk base — draw-time code needs
+   *  that offset to place the tree at a specific ON-screen anchor. */
+  function buildPalm(height, lean){
+    const w = height * 1.7, h = height * 1.7;
+    const baseX = w / 2, baseY = h * 0.95;
+    const layer = makeLayer(w, h, (g) => { palm(g, baseX, baseY, height, lean, 0); });
+    return { layer, baseX, baseY };
   }
 
   /* ── resize ────────────────────────────────────────────── */
@@ -426,12 +437,35 @@ export function createScene(canvas){
     // middle of the composition.
     ctx.save();
     ctx.translate(0, -dy * 0.42);
-    const palmBaseX = -60 + px * 1.6, palmBaseY = -60 + py * 0.7;
-    const palmNudge = palmPull * W * 0.16;   // toward centre, per side
-    ctx.drawImage(palmL, palmBaseX + palmNudge, palmBaseY,
-                  palmL.width / dpr, palmL.height / dpr);
-    ctx.drawImage(palmR, palmBaseX - palmNudge, palmBaseY,
-                  palmR.width / dpr, palmR.height / dpr);
+
+    // Where each tree's trunk base should land ON SCREEN — independent of
+    // the tree's own canvas layout (see buildPalm). Each palm's stored
+    // baseX/baseY says where its trunk sits WITHIN its own bitmap; the
+    // draw position is back-solved from that so the trunk lands exactly
+    // on this anchor regardless of how big the canvas around it is.
+    //
+    // Each crown's own frond spread already reaches roughly 0.6x its
+    // height out from the trunk — on a narrow phone that is a large
+    // fraction of the screen width by itself, so the trunk anchor only
+    // needs to move a little for a lot of the crown to come into frame.
+    // insetOut sits the trunk off-screen (write/wash/result, well clear of
+    // the sand-writing); insetIn sits it just inside the edge (intro).
+    // insetOut has to clear each crown's own reach (~0.6x its height) past
+    // the screen edge entirely, or the fronds land on top of the
+    // sand-writing. The previous value (-0.34) only looked safe because of
+    // the clipping bug above — the reach-toward-centre fronds were missing
+    // pixels, not actually absent from the design. With the full tree
+    // restored, it has to move out further to clear the same space.
+    const insetOut = -W * 0.72, insetIn = -W * 0.10;
+    const inset = lerp(insetOut, insetIn, palmPull);
+    const anchorY = H * 1.02 + py * 0.7;
+    const anchorXLeft  = inset + px * 1.6;
+    const anchorXRight = (W - inset) + px * 1.6;
+
+    ctx.drawImage(palmL.layer, anchorXLeft - palmL.baseX, anchorY - palmL.baseY,
+                  palmL.layer.width / dpr, palmL.layer.height / dpr);
+    ctx.drawImage(palmR.layer, anchorXRight - palmR.baseX, anchorY - palmR.baseY,
+                  palmR.layer.width / dpr, palmR.layer.height / dpr);
     ctx.restore();
 
     drawCard(ctx);

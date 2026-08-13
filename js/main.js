@@ -9,6 +9,25 @@ import { preparePhoto }       from './imageio.js';
 import { renderCard, preloadCardAssets } from './card.js';
 import { shareToX, download } from './share.js';
 
+/* ── keyboard-aware viewport height ─────────────────────────
+   Android Chrome doesn't shrink the layout viewport when the on-screen
+   keyboard opens — it overlays the keyboard on top instead — so anything
+   sized off the plain layout viewport (everything here uses
+   position:fixed + a height driven by this custom property) stays pinned
+   to the pre-keyboard height, and the field you're typing into can end up
+   hidden behind the keyboard. visualViewport.height DOES shrink correctly
+   when the keyboard opens, on both platforms, so feeding it back as a CSS
+   custom property is what lets the fixed layers actually respond. iOS
+   Safari already handled this natively, so this is a no-op improvement
+   there, not a platform-specific patch. */
+function syncAppHeight(){
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${h}px`);
+}
+syncAppHeight();
+window.visualViewport?.addEventListener('resize', syncAppHeight);
+window.addEventListener('resize', syncAppHeight);
+
 const $ = id => document.getElementById(id);
 
 const el = {
